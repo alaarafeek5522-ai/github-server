@@ -4,17 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       server_type:
-        description: 'server type'
+        description: server type
         required: true
-        default: 'python'
+        default: python
         type: choice
         options:
           - python
           - php
           - nodejs
-          - telegram-bot
-  schedule:
-    - cron: '0 */5 * * *'
 
 jobs:
   server:
@@ -30,61 +27,18 @@ jobs:
 
       - name: Start Server
         env:
-          SERVER_TYPE: ${{ github.event.inputs.server_type || 'python' }}
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          SERVER_TYPE: ${{ github.event.inputs.server_type }}
         run: |
-          TYPE=${SERVER_TYPE:-python}
-          if [ "$TYPE" = "python" ]; then
-            pip install -q flask
-            python apps/app.py &
-            PORT=5000
-          elif [ "$TYPE" = "php" ]; then
-            mkdir -p apps/public
-            cat > apps/public/index.php << 'PHPEOF'
-<?php echo "<h1>PHP on GitHub Actions!</h1><p>".date('Y-m-d H:i:s')."</p>"; ?>
-PHPEOF
-            php -S 0.0.0.0:8080 -t apps/public &
-            PORT=8080
-          elif [ "$TYPE" = "nodejs" ]; then
-            cat > apps/server.js << 'JSEOF'
-const http = require('http');
-http.createServer((req,res)=>{
-  res.writeHead(200,{'Content-Type':'application/json'});
-  res.end(JSON.stringify({status:'ok',time:new Date()}));
-}).listen(3000,'0.0.0.0',()=>console.log('Node on 3000'));
-JSEOF
-            node apps/server.js &
-            PORT=3000
-          elif [ "$TYPE" = "telegram-bot" ]; then
-            pip install -q python-telegram-bot
-            cat > apps/bot.py << 'BOTEOF'
-import os
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
-
-async def start(u: Update, _):
-    await u.message.reply_text('Bot running!')
-
-async def echo(u: Update, _):
-    await u.message.reply_text(u.message.text)
-
-app = Application.builder().token(os.environ['TELEGRAM_TOKEN']).build()
-app.add_handler(CommandHandler('start', start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-app.run_polling(drop_pending_updates=True)
-BOTEOF
-            python apps/bot.py &
-            PORT=0
-          fi
-          echo "PORT=$PORT" >> $GITHUB_ENV
+          pip install -q flask
+          python apps/app.py &
+          echo PORT=5000 >> $GITHUB_ENV
           sleep 3
 
       - name: Start Tunnel
-        if: env.PORT != '0'
         run: |
-          cloudflared tunnel --url http://localhost:${{ env.PORT }} --no-autoupdate 2>&1 | tee /tmp/cf.log &
+          cloudflared tunnel --url http://localhost:5000 --no-autoupdate 2>&1 | tee /tmp/cf.log &
           for i in $(seq 1 30); do
-            URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
+            URL=$(grep -o "https://[a-z0-9-]*.trycloudflare.com" /tmp/cf.log | head -1)
             if [ -n "$URL" ]; then
               echo "================================"
               echo "  URL: $URL"
