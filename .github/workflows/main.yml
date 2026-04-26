@@ -26,15 +26,12 @@ jobs:
           sudo dpkg -i cloudflared-linux-amd64.deb
 
       - name: Start Server
-        env:
-          SERVER_TYPE: ${{ github.event.inputs.server_type }}
         run: |
           pip install -q flask
           python apps/app.py &
-          echo PORT=5000 >> $GITHUB_ENV
           sleep 3
 
-      - name: Start Tunnel
+      - name: Start Tunnel & Save URL
         run: |
           cloudflared tunnel --url http://localhost:5000 --no-autoupdate 2>&1 | tee /tmp/cf.log &
           for i in $(seq 1 30); do
@@ -43,6 +40,12 @@ jobs:
               echo "================================"
               echo "  URL: $URL"
               echo "================================"
+              echo "$URL" > server_url.txt
+              git config user.email "bot@github.com"
+              git config user.name "GitHub Actions"
+              git add server_url.txt
+              git commit -m "update url"
+              git push
               break
             fi
             sleep 2
