@@ -13,6 +13,9 @@ on:
           - php
           - nodejs
 
+permissions:
+  contents: write
+
 jobs:
   server:
     runs-on: ubuntu-latest
@@ -31,7 +34,7 @@ jobs:
           python apps/app.py &
           sleep 3
 
-      - name: Start Tunnel & Save URL
+      - name: Start Tunnel and Save URL
         run: |
           cloudflared tunnel --url http://localhost:5000 --no-autoupdate 2>&1 | tee /tmp/cf.log &
           for i in $(seq 1 30); do
@@ -41,10 +44,11 @@ jobs:
               echo "  URL: $URL"
               echo "================================"
               echo "$URL" > server_url.txt
-              git config user.email "bot@github.com"
+              git config user.email "actions@github.com"
               git config user.name "GitHub Actions"
+              git remote set-url origin https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
               git add server_url.txt
-              git commit -m "update url"
+              git commit -m "url: update"
               git push
               break
             fi
