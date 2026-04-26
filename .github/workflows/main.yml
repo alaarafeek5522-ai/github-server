@@ -54,7 +54,7 @@ jobs:
           sleep 3
 
       - name: Start Tunnel and Save URL
-        if: env.PORT != "0"
+        if: env.PORT != '0'
         run: |
           cloudflared tunnel --url http://localhost:${{ env.PORT }} --no-autoupdate 2>&1 | tee /tmp/cf.log &
           for i in $(seq 1 30); do
