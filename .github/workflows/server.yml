@@ -1,8 +1,6 @@
-name: ♾️ Auto-Renewing Server
+name: Auto-Renewing Server
 
 on:
-  schedule:
-    - cron: '0 */5 * * *'
   workflow_dispatch:
     inputs:
       server_type:
@@ -15,6 +13,8 @@ on:
           - php
           - nodejs
           - telegram-bot
+  schedule:
+    - cron: '0 */5 * * *'
 
 jobs:
   server:
@@ -22,22 +22,21 @@ jobs:
     timeout-minutes: 355
 
     steps:
-      - name: 📥 Checkout
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 🌐 Install cloudflared
+      - name: Install cloudflared
         run: |
           wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
           sudo dpkg -i cloudflared-linux-amd64.deb
-          echo "✅ cloudflared ready"
 
-      - name: 🚀 Start Server
+      - name: Start Server
         env:
           SERVER_TYPE: ${{ github.event.inputs.server_type || 'python' }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
         run: |
           TYPE=${SERVER_TYPE:-python}
-          echo "▶️ Starting: $TYPE"
+          echo "Starting: $TYPE"
 
           if [ "$TYPE" = "python" ]; then
             pip install -q flask
@@ -49,9 +48,8 @@ jobs:
             cat > apps/public/index.php << 'PHPEOF'
 <?php
 header('Content-Type: text/html; charset=utf-8');
-echo "<h1>🐘 PHP on GitHub Actions!</h1>";
-echo "<p>الوقت: " . date('Y-m-d H:i:s') . "</p>";
-echo "<p>PHP: " . phpversion() . "</p>";
+echo "<h1>PHP on GitHub Actions!</h1>";
+echo "<p>" . date('Y-m-d H:i:s') . "</p>";
 PHPEOF
             php -S 0.0.0.0:8080 -t apps/public &
             PORT=8080
@@ -59,11 +57,10 @@ PHPEOF
           elif [ "$TYPE" = "nodejs" ]; then
             cat > apps/server.js << 'JSEOF'
 const http = require('http');
-const server = http.createServer((req, res) => {
-  res.writeHead(200, {'Content-Type': 'application/json'});
-  res.end(JSON.stringify({status:'ok', server:'GitHub Actions', time: new Date()}));
-});
-server.listen(3000, '0.0.0.0', () => console.log('Node running on 3000'));
+http.createServer((req,res)=>{
+  res.writeHead(200,{'Content-Type':'application/json'});
+  res.end(JSON.stringify({status:'ok',time:new Date()}));
+}).listen(3000,'0.0.0.0',()=>console.log('Node on 3000'));
 JSEOF
             node apps/server.js &
             PORT=3000
@@ -76,15 +73,14 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 async def start(u: Update, _):
-    await u.message.reply_text('🤖 Bot يعمل على GitHub Actions!\n♾️ يتجدد كل 5 ساعات تلقائياً')
+    await u.message.reply_text('Bot running on GitHub Actions!')
 
 async def echo(u: Update, _):
-    await u.message.reply_text(f'↩️ {u.message.text}')
+    await u.message.reply_text(f'{u.message.text}')
 
 app = Application.builder().token(os.environ['TELEGRAM_TOKEN']).build()
 app.add_handler(CommandHandler('start', start))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-print("🤖 Bot started!")
 app.run_polling(drop_pending_updates=True)
 BOTEOF
             python apps/bot.py &
@@ -94,28 +90,20 @@ BOTEOF
           echo "PORT=$PORT" >> $GITHUB_ENV
           sleep 3
 
-      - name: 🔗 Start Tunnel
+      - name: Start Tunnel
         if: env.PORT != '0'
         run: |
-          cloudflared tunnel --url http://localhost:${{ env.PORT }} \
-            --no-autoupdate 2>&1 | tee /tmp/cf.log &
-
-          echo "⏳ Waiting for tunnel URL..."
+          cloudflared tunnel --url http://localhost:${{ env.PORT }} --no-autoupdate 2>&1 | tee /tmp/cf.log &
           for i in $(seq 1 30); do
             URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/cf.log | head -1)
             if [ -n "$URL" ]; then
-              echo ""
-              echo "╔══════════════════════════════════════╗"
-              echo "║  🌍 SERVER URL:                      ║"
-              echo "║  $URL"
-              echo "╚══════════════════════════════════════╝"
+              echo "============================================"
+              echo "  SERVER URL: $URL"
+              echo "============================================"
               break
             fi
             sleep 2
           done
 
-      - name: ♾️ Keep Alive
-        run: |
-          echo "✅ Server running... (5h 45min then cron restarts)"
-          sleep 20700
-          echo "🔄 Done - cron will restart shortly"
+      - name: Keep Alive
+        run: sleep 20700
