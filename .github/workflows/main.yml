@@ -33,7 +33,7 @@ jobs:
 
       - name: Start Server
         env:
-          SERVER_TYPE: ${{ github.event.inputs.server_type || "python" }}
+          SERVER_TYPE: ${{ github.event.inputs.server_type || 'python' }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
         run: |
           TYPE=${SERVER_TYPE:-python}
