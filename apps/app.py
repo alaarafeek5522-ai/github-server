@@ -1,44 +1,53 @@
 from flask import Flask, jsonify, request
-import datetime, os
+import requests
+import datetime
 
 app = Flask(__name__)
 
+API_NAME = "API Developer Alaa"
+VERSION = "1.0.0"
+
 @app.route('/')
 def home():
-    return '''
-<!DOCTYPE html>
-<html dir="rtl">
-<head>
-<meta charset="utf-8">
-<title>GitHub Server</title>
-<style>
-body{background:#0d1117;color:#e6edf3;font-family:sans-serif;text-align:center;padding:50px}
-h1{color:#58a6ff;font-size:2.5em}
-.badge{background:#238636;padding:8px 20px;border-radius:20px;display:inline-block;margin:10px}
-.url{background:#161b22;border:1px solid #30363d;padding:15px;border-radius:8px;margin:20px auto;max-width:500px;word-break:break-all}
-</style>
-</head>
-<body>
-<h1>🚀 GitHub Actions Server</h1>
-<div class="badge">✅ Running</div>
-<div class="badge">♾️ Auto-Renewing</div>
-<p>الوقت: ''' + str(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')) + '''</p>
-</body>
-</html>
-'''
-
-@app.route('/api/ping')
-def ping():
     return jsonify({
+        "api": API_NAME,
+        "version": VERSION,
         "status": "ok",
         "time": str(datetime.datetime.now()),
-        "server": "GitHub Actions"
+        "endpoints": [
+            "GET /api/drug/search?name=اسم_الدواء",
+            "GET /api/status"
+        ]
     })
 
-@app.route('/api/echo', methods=['POST'])
-def echo():
-    data = request.get_json(force=True)
-    return jsonify({"echo": data})
+@app.route('/api/status')
+def status():
+    return jsonify({"status": "ok", "api": API_NAME})
+
+@app.route('/api/drug/search')
+def drug_search():
+    name = request.args.get('name', '')
+    if not name:
+        return jsonify({"code": 400, "error": True, "message": "اكتب اسم الدواء"}), 400
+    try:
+        res = requests.get(
+            "http://moelshafey.top/API/MD/search.php",
+            params={'name': name},
+            headers={'User-Agent': 'Dart/3.7 (dart:io)', 'Accept-Encoding': 'gzip'},
+            timeout=10
+        )
+        data = res.json()
+        if data.get("code") == 200 and not data.get("error"):
+            return jsonify({
+                "code": 200,
+                "error": False,
+                "api": API_NAME,
+                "count": len(data.get("products", [])),
+                "products": data.get("products", [])
+            })
+        return jsonify({"code": 500, "error": True, "message": "خطأ في المصدر"})
+    except Exception as e:
+        return jsonify({"code": 500, "error": True, "message": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, threaded=True)
