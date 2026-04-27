@@ -6,7 +6,7 @@ on:
       server_type:
         description: server type
         required: true
-        default: python
+        default: telegram-bot
         type: choice
         options:
           - python
@@ -33,10 +33,10 @@ jobs:
 
       - name: Start Server
         env:
-          SERVER_TYPE: ${{ github.event.inputs.server_type || 'python' }}
+          SERVER_TYPE: ${{ github.event.inputs.server_type || 'telegram-bot' }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
         run: |
-          TYPE=${SERVER_TYPE:-python}
+          TYPE=${SERVER_TYPE:-telegram-bot}
           echo "Starting: $TYPE"
 
           if [ "$TYPE" = "python" ]; then
@@ -60,20 +60,37 @@ jobs:
           for i in $(seq 1 30); do
             URL=$(grep -o "https://[a-z0-9-]*.trycloudflare.com" /tmp/cf.log | head -1)
             if [ -n "$URL" ]; then
-              echo "================================"
-              echo "  URL: $URL"
-              echo "================================"
               echo "$URL" > server_url.txt
               git config user.email "actions@github.com"
               git config user.name "GitHub Actions"
               git remote set-url origin https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
               git add server_url.txt
-              git commit -m "url: update"
+              git commit -m "url: $URL"
               git push
               break
             fi
             sleep 2
           done
 
-      - name: Keep Alive
-        run: sleep 20700
+      - name: Keep Alive with Auto Commit
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git remote set-url origin https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+          
+          COUNT=0
+          while true; do
+            sleep 3600
+            COUNT=$((COUNT + 1))
+            echo "$(date)" > .heartbeat
+            git add .heartbeat
+            git commit -m "heartbeat: $(date +%H:%M)" || true
+            git push || true
+            echo "Heartbeat $COUNT sent"
+            
+            # بعد 5 ساعات وقف عشان الـ cron يشغل واحد جديد
+            if [ $COUNT -ge 5 ]; then
+              echo "Time to restart via cron"
+              break
+            fi
+          done
