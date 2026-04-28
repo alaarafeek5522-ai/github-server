@@ -46,7 +46,7 @@ jobs:
 
           elif [ "$TYPE" = "telegram-bot" ]; then
             pip install -q python-telegram-bot
-            python apps/bot.py &
+            python apps/manager.py &
             PORT=0
           fi
 
